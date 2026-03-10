@@ -3,14 +3,21 @@ import {
   View, Text, TouchableOpacity,
   StyleSheet, Platform, Alert, PermissionsAndroid
 } from 'react-native';
-import { BleManager } from 'react-native-ble-plx';
+import BleManager, {
+  BleManagerDidUpdateValueForCharacteristicEvent
+} from 'react-native-ble-manager';
+import { BleManager as BleManagerPLX } from 'react-native-ble-plx';
+import { NativeEventEmitter, NativeModules } from 'react-native';
 import { request, PERMISSIONS } from 'react-native-permissions';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 
-const bleManager = new BleManager();
-
+const BleManagerEmitter = new NativeEventEmitter(NativeModules.BleManager);
+const bleManagerPLX = new BleManagerPLX();
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789012';
 const CHARACTERISTIC_UUID = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
+
+const isEmulator = Constants.isDevice === false;
 
 export default function PeripheralScreen() {
   const router = useRouter();
@@ -19,9 +26,26 @@ export default function PeripheralScreen() {
   const [receivedMessage, setReceivedMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isEmulator) {
+      setStatus('⚠️ Running on emulator — BLE disabled');
+      return;
+    }
+
+    BleManager.start({ showAlert: false });
+
+    const valueSub = BleManagerEmitter.addListener(
+      'BleManagerDidUpdateValueForCharacteristic',
+      (data: BleManagerDidUpdateValueForCharacteristicEvent) => {
+        const received = String.fromCharCode(...data.value);
+        setReceivedMessage(received);
+        Alert.alert('📨 Message Received!', received);
+        setStatus(`Received: ${received}`);
+      }
+    );
+
     return () => {
-      bleManager.stopDeviceScan();
-      bleManager.destroy();
+      valueSub.remove();
+      if (!isEmulator) stopAdvertising();
     };
   }, []);
 
@@ -38,21 +62,24 @@ export default function PeripheralScreen() {
   };
 
   const startAdvertising = async () => {
+    if (isEmulator) {
+      setIsAdvertising(true);
+      setStatus('📡 Advertising... (mock)');
+      setTimeout(() => {
+        setReceivedMessage('Hello World');
+        Alert.alert('📨 Message Received! (mock)', 'Hello World');
+        setStatus('Received: Hello World (mock)');
+      }, 3000);
+      return;
+    }
     await requestPermissions();
     try {
-      await bleManager.startDeviceScan(null, null, (error, device) => {
+      bleManagerPLX.startDeviceScan(null, null, (error, device) => {
         if (error) {
           console.error(error);
           return;
         }
       });
-
-      // Listen for incoming data
-      bleManager.onDeviceDisconnected('', (error, device) => {
-        setStatus('Device disconnected');
-        setIsAdvertising(false);
-      });
-
       setIsAdvertising(true);
       setStatus('📡 Advertising... waiting for connection');
     } catch (err) {
@@ -62,7 +89,12 @@ export default function PeripheralScreen() {
   };
 
   const stopAdvertising = async () => {
-    bleManager.stopDeviceScan();
+    if (isEmulator) {
+      setIsAdvertising(false);
+      setStatus('Stopped advertising (mock)');
+      return;
+    }
+    bleManagerPLX.stopDeviceScan();
     setIsAdvertising(false);
     setStatus('Stopped advertising');
   };
@@ -74,6 +106,13 @@ export default function PeripheralScreen() {
       </TouchableOpacity>
 
       <Text style={styles.title}>📡 Receive Mode</Text>
+
+      {isEmulator && (
+        <View style={styles.emulatorBanner}>
+          <Text style={styles.emulatorText}>⚠️ Emulator mode — BLE is mocked</Text>
+        </View>
+      )}
+
       <Text style={styles.status}>Status: {status}</Text>
 
       {!isAdvertising ? (
@@ -120,4 +159,9 @@ const styles = StyleSheet.create({
   },
   messageLabel: { color: '#94a3b8', fontSize: 14, marginBottom: 8 },
   messageText: { color: '#10b981', fontSize: 24, fontWeight: 'bold' },
+  emulatorBanner: {
+    backgroundColor: '#854d0e', padding: 10,
+    borderRadius: 8, marginBottom: 12
+  },
+  emulatorText: { color: '#fef08a', textAlign: 'center', fontSize: 13 },
 });

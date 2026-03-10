@@ -11,10 +11,18 @@ import BleManager, {
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import { request, PERMISSIONS } from 'react-native-permissions';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 
 const BleManagerEmitter = new NativeEventEmitter(NativeModules.BleManager);
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789012';
 const CHARACTERISTIC_UUID = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
+
+const isEmulator = Constants.isDevice === false;
+
+const mockDevices: Peripheral[] = [
+  { id: '00:11:22:33:44:55', name: 'Phone 1 (Mock)', rssi: -60, advertising: {} },
+  { id: '00:11:22:33:44:56', name: 'Phone 2 (Mock)', rssi: -70, advertising: {} },
+];
 
 export default function CentralScreen() {
   const router = useRouter();
@@ -23,6 +31,11 @@ export default function CentralScreen() {
   const [status, setStatus] = useState('Idle');
 
   useEffect(() => {
+    if (isEmulator) {
+      setStatus('⚠️ Running on emulator — BLE disabled');
+      return;
+    }
+
     BleManager.start({ showAlert: false });
 
     const discoverSub = BleManagerEmitter.addListener(
@@ -73,6 +86,11 @@ export default function CentralScreen() {
   };
 
   const startScan = async () => {
+    if (isEmulator) {
+      setDevices(mockDevices);
+      setStatus('Scan complete (mock) — tap a device to connect');
+      return;
+    }
     await requestPermissions();
     setDevices([]);
     setStatus('Scanning...');
@@ -82,6 +100,11 @@ export default function CentralScreen() {
   };
 
   const connectToDevice = (peripheralId: string) => {
+    if (isEmulator) {
+      setConnectedDevice(peripheralId);
+      setStatus('Connected (mock)! Ready to send.');
+      return;
+    }
     setStatus('Connecting...');
     BleManager.connect(peripheralId)
       .then(() => {
@@ -101,6 +124,11 @@ export default function CentralScreen() {
       Alert.alert('Not connected', 'Please connect to a device first.');
       return;
     }
+    if (isEmulator) {
+      Alert.alert('Mock Send', 'Hello World sent! (mock)');
+      setStatus('Sent: Hello World ✅ (mock)');
+      return;
+    }
     const message = 'Hello World';
     const bytes = message.split('').map(c => c.charCodeAt(0));
     BleManager.write(connectedDevice, SERVICE_UUID, CHARACTERISTIC_UUID, bytes)
@@ -115,6 +143,13 @@ export default function CentralScreen() {
       </TouchableOpacity>
 
       <Text style={styles.title}>📤 Send Mode</Text>
+
+      {isEmulator && (
+        <View style={styles.emulatorBanner}>
+          <Text style={styles.emulatorText}>⚠️ Emulator mode — BLE is mocked</Text>
+        </View>
+      )}
+
       <Text style={styles.status}>Status: {status}</Text>
 
       <TouchableOpacity style={styles.button} onPress={startScan}>
@@ -170,4 +205,9 @@ const styles = StyleSheet.create({
   deviceName: { color: '#f1f5f9', fontSize: 16 },
   deviceId: { color: '#64748b', fontSize: 11 },
   empty: { color: '#475569', textAlign: 'center', marginTop: 20 },
+  emulatorBanner: {
+    backgroundColor: '#854d0e', padding: 10,
+    borderRadius: 8, marginBottom: 12
+  },
+  emulatorText: { color: '#fef08a', textAlign: 'center', fontSize: 13 },
 });
