@@ -1,13 +1,15 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>📶 Bluetooth Messenger</Text>
+    <View style={[ styles.container, { paddingTop: insets.top > 0 ? insets.top : 24 } ]}>
+      <Text style={styles.title}>📶 Bluetooth Payment</Text>
       <Text style={styles.subtitle}>Choose your role:</Text>
 
       <TouchableOpacity

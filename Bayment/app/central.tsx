@@ -12,6 +12,7 @@ import { NativeEventEmitter, NativeModules } from 'react-native';
 import { request, PERMISSIONS } from 'react-native-permissions';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BleManagerEmitter = new NativeEventEmitter(NativeModules.BleManager);
 const SERVICE_UUID = '12345678-1234-1234-1234-123456789012';
@@ -26,6 +27,7 @@ const mockDevices: Peripheral[] = [
 
 export default function CentralScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [devices, setDevices] = useState<Peripheral[]>([]);
   const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
   const [status, setStatus] = useState('Idle');
@@ -137,7 +139,7 @@ export default function CentralScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[ styles.container, { paddingTop: insets.top > 0 ? insets.top : 24 } ]}>
       <TouchableOpacity onPress={() => router.back()}>
         <Text style={styles.back}>← Back</Text>
       </TouchableOpacity>

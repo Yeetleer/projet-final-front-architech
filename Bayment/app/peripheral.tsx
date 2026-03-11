@@ -11,6 +11,7 @@ import { NativeEventEmitter, NativeModules } from 'react-native';
 import { request, PERMISSIONS } from 'react-native-permissions';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BleManagerEmitter = new NativeEventEmitter(NativeModules.BleManager);
 const bleManagerPLX = new BleManagerPLX();
@@ -21,6 +22,7 @@ const isEmulator = Constants.isDevice === false;
 
 export default function PeripheralScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isAdvertising, setIsAdvertising] = useState(false);
   const [status, setStatus] = useState('Idle');
   const [receivedMessage, setReceivedMessage] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export default function PeripheralScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[ styles.container, { paddingTop: insets.top > 0 ? insets.top : 24 } ]}>
       <TouchableOpacity onPress={() => { stopAdvertising(); router.back(); }}>
         <Text style={styles.back}>← Back</Text>
       </TouchableOpacity>
