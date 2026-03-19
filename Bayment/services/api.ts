@@ -1,4 +1,4 @@
-const API_URL = 'http://YOUR_BACKEND_IP:3000';  // replace with your backend IP
+const API_URL = 'http://172.20.10.3:3000';  // replace with your backend IP
 
 export const getUserById = async (id: number) => {
   try {
