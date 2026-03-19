@@ -3,60 +3,20 @@ import {
   View, Text, TouchableOpacity, FlatList,
   StyleSheet, Platform, Alert, PermissionsAndroid
 } from 'react-native';
-import BleManager, {
-  Peripheral,
-  BleDisconnectPeripheralEvent,
-  BleManagerDidUpdateValueForCharacteristicEvent
-} from 'react-native-ble-manager';
-import { NativeEventEmitter, NativeModules } from 'react-native';
-import { request, PERMISSIONS } from 'react-native-permissions';
+import RNBluetoothClassic, { BluetoothDevice } from 'react-native-bluetooth-classic';
 import { useRouter } from 'expo-router';
-
-const BleManagerEmitter = new NativeEventEmitter(NativeModules.BleManager);
-const SERVICE_UUID = '12345678-1234-1234-1234-123456789012';
-const CHARACTERISTIC_UUID = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
 
 export default function CentralScreen() {
   const router = useRouter();
-  const [devices, setDevices] = useState<Peripheral[]>([]);
-  const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
+  const [devices, setDevices] = useState<BluetoothDevice[]>([]);
+  const [connectedDevice, setConnectedDevice] = useState<BluetoothDevice | null>(null);
   const [status, setStatus] = useState('Idle');
 
   useEffect(() => {
-    BleManager.start({ showAlert: false });
-
-    const discoverSub = BleManagerEmitter.addListener(
-      'BleManagerDiscoverPeripheral',
-      (peripheral: Peripheral) => {
-        setDevices((prev: Peripheral[]) => {
-          const exists = prev.find(d => d.id === peripheral.id);
-          if (!exists && peripheral.name) {
-            return [...prev, peripheral];
-          }
-          return prev;
-        });
-      }
-    );
-
-    const connectSub = BleManagerEmitter.addListener(
-      'BleManagerConnectPeripheral',
-      (peripheral: { peripheral: string }) => {
-        setStatus(`Connected to: ${peripheral.peripheral}`);
-      }
-    );
-
-    const disconnectSub = BleManagerEmitter.addListener(
-      'BleManagerDisconnectPeripheral',
-      (_peripheral: BleDisconnectPeripheralEvent) => {
-        setConnectedDevice(null);
-        setStatus('Disconnected');
-      }
-    );
-
     return () => {
-      discoverSub.remove();
-      connectSub.remove();
-      disconnectSub.remove();
+      if (connectedDevice) {
+        connectedDevice.disconnect();
+      }
     };
   }, []);
 
@@ -67,8 +27,6 @@ export default function CentralScreen() {
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       ]);
-    } else {
-      await request(PERMISSIONS.IOS.BLUETOOTH);
     }
   };
 
@@ -76,36 +34,49 @@ export default function CentralScreen() {
     await requestPermissions();
     setDevices([]);
     setStatus('Scanning...');
-    BleManager.scan()
-      .then(() => setStatus('Scan complete — tap a device to connect'))
-      .catch(() => setStatus('Scan failed'));
+
+    try {
+      const paired = await RNBluetoothClassic.getBondedDevices();
+      setDevices(paired);
+      setStatus(`Found ${paired.length} paired devices`);
+
+      const unpaired = await RNBluetoothClassic.startDiscovery();
+      setDevices(prev => [...prev, ...unpaired]);
+      setStatus('Scan complete — tap a device to connect');
+    } catch (err: any) {
+      setStatus(`Scan failed: ${err.message}`);
+    }
   };
 
-  const connectToDevice = (peripheralId: string) => {
+  const connectToDevice = async (device: BluetoothDevice) => {
     setStatus('Connecting...');
-    BleManager.connect(peripheralId)
-      .then(() => {
-        setConnectedDevice(peripheralId);
-        setStatus('Connected! Ready to send.');
-        return BleManager.startNotification(
-          peripheralId, SERVICE_UUID, CHARACTERISTIC_UUID
-        );
-      })
-      .catch((err: Error) => {
-        setStatus(`Connection failed: ${err.message}`);
+    try {
+      const connected = await device.connect({
+        connectorType: 'rfcomm',
+        DELIMITER: '\n',
+        DEVICE_CHARSET: Platform.OS === 'ios' ? 1536 : 'utf-8',
       });
+      if (connected) {
+        setConnectedDevice(device);
+        setStatus(`Connected to ${device.name}! Ready to send.`);
+      }
+    } catch (err: any) {
+      setStatus(`Connection failed: ${err.message}`);
+    }
   };
 
-  const sendHelloWorld = () => {
+
+  const sendHelloWorld = async () => {
     if (!connectedDevice) {
       Alert.alert('Not connected', 'Please connect to a device first.');
       return;
     }
-    const message = 'Hello World';
-    const bytes = message.split('').map(c => c.charCodeAt(0));
-    BleManager.write(connectedDevice, SERVICE_UUID, CHARACTERISTIC_UUID, bytes)
-      .then(() => setStatus('Sent: Hello World ✅'))
-      .catch((err: Error) => setStatus(`Send failed: ${err.message}`));
+    try {
+      await connectedDevice.write('Hello World\n');
+      setStatus('Sent: Hello World ✅');
+    } catch (err: any) {
+      setStatus(`Send failed: ${err.message}`);
+    }
   };
 
   return (
@@ -123,17 +94,17 @@ export default function CentralScreen() {
 
       <FlatList
         data={devices}
-        keyExtractor={(item: Peripheral) => item.id}
-        renderItem={({ item }: { item: Peripheral }) => (
+        keyExtractor={(item) => item.address}
+        renderItem={({ item }) => (
           <TouchableOpacity
             style={[
               styles.deviceItem,
-              connectedDevice === item.id && styles.connectedDevice
+              connectedDevice?.address === item.address && styles.connectedDevice
             ]}
-            onPress={() => connectToDevice(item.id)}
+            onPress={() => connectToDevice(item)}
           >
             <Text style={styles.deviceName}>{item.name || 'Unknown'}</Text>
-            <Text style={styles.deviceId}>{item.id}</Text>
+            <Text style={styles.deviceId}>{item.address}</Text>
           </TouchableOpacity>
         )}
         ListEmptyComponent={

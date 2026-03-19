@@ -1,94 +1,85 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity,
-  StyleSheet, Platform, Alert, PermissionsAndroid
+  StyleSheet, Alert
 } from 'react-native';
-import { BleManager } from 'react-native-ble-plx';
-import { request, PERMISSIONS } from 'react-native-permissions';
+import RNBluetoothClassic, { BluetoothDevice } from 'react-native-bluetooth-classic';
 import { useRouter } from 'expo-router';
-
-const bleManager = new BleManager();
-
-const SERVICE_UUID = '12345678-1234-1234-1234-123456789012';
-const CHARACTERISTIC_UUID = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
 
 export default function PeripheralScreen() {
   const router = useRouter();
-  const [isAdvertising, setIsAdvertising] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [status, setStatus] = useState('Idle');
   const [receivedMessage, setReceivedMessage] = useState<string | null>(null);
+  const subscriptionRef = useRef<any>(null);
 
   useEffect(() => {
     return () => {
-      bleManager.stopDeviceScan();
-      bleManager.destroy();
+      stopListening();
     };
   }, []);
 
-  const requestPermissions = async () => {
-    if (Platform.OS === 'android') {
-      await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      ]);
-    } else {
-      await request(PERMISSIONS.IOS.BLUETOOTH);
-    }
-  };
-
-  const startAdvertising = async () => {
-    await requestPermissions();
+  const startListening = async () => {
     try {
-      await bleManager.startDeviceScan(null, null, (error, device) => {
-        if (error) {
-          console.error(error);
-          return;
-        }
-      });
+      const enabled = await RNBluetoothClassic.isBluetoothEnabled();
+      if (!enabled) {
+        await RNBluetoothClassic.requestBluetoothEnabled();
+      }
 
-      // Listen for incoming data
-      bleManager.onDeviceDisconnected('', (error, device) => {
-        setStatus('Device disconnected');
-        setIsAdvertising(false);
-      });
+      setIsListening(true);
+      setStatus('📡 Waiting for connection...');
 
-      setIsAdvertising(true);
-      setStatus('📡 Advertising... waiting for connection');
-    } catch (err) {
-      setStatus('Failed to start advertising');
-      console.error(err);
+      // This makes the phone accept incoming connections
+      const device = await RNBluetoothClassic.accept({ delimiter: '\n' });
+      if (device) {
+        setStatus(`Connected to ${device.name}! Waiting for message...`);
+
+        const dataSubscription = device.onDataReceived((data: any) => {
+          const message = data.data.trim();
+          setReceivedMessage(message);
+          Alert.alert('📨 Message Received!', message);
+          setStatus(`Received: ${message}`);
+        });
+
+        subscriptionRef.current = dataSubscription;
+      }
+    } catch (err: any) {
+      setStatus(`Failed: ${err.message}`);
+      setIsListening(false);
     }
   };
 
-  const stopAdvertising = async () => {
-    bleManager.stopDeviceScan();
-    setIsAdvertising(false);
-    setStatus('Stopped advertising');
+  const stopListening = () => {
+    if (subscriptionRef.current) {
+      subscriptionRef.current.remove();
+      subscriptionRef.current = null;
+    }
+    setIsListening(false);
+    setStatus('Stopped listening');
   };
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => { stopAdvertising(); router.back(); }}>
+      <TouchableOpacity onPress={() => { stopListening(); router.back(); }}>
         <Text style={styles.back}>← Back</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>📡 Receive Mode</Text>
       <Text style={styles.status}>Status: {status}</Text>
 
-      {!isAdvertising ? (
+      {!isListening ? (
         <TouchableOpacity
           style={[styles.button, styles.peripheralButton]}
-          onPress={startAdvertising}
+          onPress={startListening}
         >
-          <Text style={styles.buttonText}>Start Advertising</Text>
+          <Text style={styles.buttonText}>📡 Start Listening</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
           style={[styles.button, styles.stopButton]}
-          onPress={stopAdvertising}
+          onPress={stopListening}
         >
-          <Text style={styles.buttonText}>Stop Advertising</Text>
+          <Text style={styles.buttonText}>Stop Listening</Text>
         </TouchableOpacity>
       )}
 

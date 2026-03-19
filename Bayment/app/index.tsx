@@ -4,6 +4,37 @@ import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const requestPermissions = async () => {
+  if (Platform.OS === 'android') {
+      const result = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      ]);
+
+      const allGranted = Object.values(result).every(
+        status => status === PermissionsAndroid.RESULTS.GRANTED
+      );
+
+      if (!allGranted) {
+        Alert.alert(
+          '⚠️ Permissions Required',
+          'Please grant all Bluetooth permissions in your phone settings to use this app.',
+          [{ text: 'OK' }]
+        );
+      }
+    } else {
+      const result = await request(PERMISSIONS.IOS.BLUETOOTH);
+      if (result !== 'granted') {
+        Alert.alert(
+          '⚠️ Bluetooth Permission Required',
+          'Please enable Bluetooth permission for Bayment in Settings → Bayment → Bluetooth',
+          [{ text: 'OK' }]
+        );
+      }
+    }
+  };
 
   return (
     <View style={styles.container}>
