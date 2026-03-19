@@ -4,6 +4,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Buffer } from 'buffer';
 import { requestMagicLink } from '../services/api';
+import { useUser } from '../context/UserContext';
+import { getUserByEmail } from '../services/api';
+
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -12,6 +15,8 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
+  const { setUser } = useUser();
+
 
   const [toast, setToast] = useState<{ message: string, type: 'error' | 'success' } | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -36,13 +41,14 @@ export default function AuthScreen() {
         console.log("Erreur décodage token:", e);
       }
 
+      // Fetch user by email and store in context
+      const userData = await getUserByEmail(userEmail);
+      setUser(userData);
+
       showToast('Connexion réussie !', 'success');
 
       setTimeout(() => {
-        router.replace({
-          pathname: '/central',
-          params: { userEmail: userEmail }
-        });
+        router.replace('/');
       }, 1500);
     } catch (error) {
       showToast('Erreur lors de la connexion.', 'error');
@@ -50,6 +56,7 @@ export default function AuthScreen() {
       setLoading(false);
     }
   };
+
 
   const showToast = (message: string, type: 'error' | 'success') => {
     setToast({ message, type });

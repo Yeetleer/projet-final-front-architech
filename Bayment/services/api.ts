@@ -29,3 +29,9 @@ export const updateAccountMoney = async (id: number, amount: number) => {
   if (!response.ok) throw new Error('Failed to update balance');
   return await response.json();
 };
+
+export const getUserByEmail = async (mail: string) => {
+  const response = await fetch(`${API_URL}/users/mail/${mail}`);
+  if (!response.ok) throw new Error('User not found');
+  return await response.json();
+};
