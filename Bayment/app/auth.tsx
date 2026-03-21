@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Animated, ActivityIndicator, Alert } from 'react-native';
+
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Animated, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Buffer } from 'buffer';
-
-const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+import { requestMagicLink } from '../services/api';
+import { useUser } from '../context/UserContext';
+import { getUserByEmail } from '../services/api';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -14,11 +16,16 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
 
+
+
   const [toast, setToast] = useState<{ message: string, type: 'error' | 'success' } | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-100)).current;
 
   // Gérer le retour du Deep Link (le token est dans les params de l'URL)
+=======
+  console.log()
+>>>>>>> upstream/main
   useEffect(() => {
     if (params.token) {
       handleTokenReceived(params.token as string);
@@ -28,15 +35,20 @@ export default function AuthScreen() {
   const handleTokenReceived = async (token: string) => {
     try {
       setLoading(true);
+<<<<<<< HEAD
       console.log('Token reçu via Deep Link:', token);
 
       // On décode sommairement le JWT pour extraire l'email
+=======
+
+>>>>>>> upstream/main
       let userEmail = '';
       try {
         const payload = token.split('.')[1];
         const decoded = JSON.parse(Buffer.from(payload, 'base64').toString());
         userEmail = decoded.mail;
       } catch (e) {
+<<<<<<< HEAD
         console.log("Erreur décodage token:", e);
       }
 
@@ -51,11 +63,31 @@ export default function AuthScreen() {
       }, 1500);
     } catch (error) {
       showToast('Erreur lors de la connexion.', 'error');
+=======
+        console.log("Token decoding error:", e);
+      }
+
+      // Fetch user by email and store in context
+      const userData = await getUserByEmail(userEmail);
+      setUser(userData);
+
+      showToast('Connection successful !', 'success');
+
+      setTimeout(() => {
+        router.replace('/');
+      }, 1500);
+    } catch (error) {
+      showToast('Error while connecting.', 'error');
+>>>>>>> upstream/main
     } finally {
       setLoading(false);
     }
   };
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> upstream/main
   const showToast = (message: string, type: 'error' | 'success') => {
     setToast({ message, type });
 
@@ -74,19 +106,28 @@ export default function AuthScreen() {
 
   const handleLogin = async () => {
     if (!email) {
+<<<<<<< HEAD
       showToast('Veuillez entrer votre adresse e-mail.', 'error');
+=======
+      showToast('Enter your e-mail address.', 'error');
+>>>>>>> upstream/main
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
+<<<<<<< HEAD
       showToast('Adresse e-mail invalide.', 'error');
+=======
+      showToast('Unvalide e-mail address.', 'error');
+>>>>>>> upstream/main
       return;
     }
 
     setLoading(true);
 
     try {
+<<<<<<< HEAD
       console.log(`Tentative d'envoi d'un lien de connexion à : ${API_URL}/auth/login`);
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -107,6 +148,14 @@ export default function AuthScreen() {
     } catch (error) {
       console.error('Erreur Fetch:', error);
       showToast('Impossible de contacter le serveur.', 'error');
+=======
+      // ← replaced the entire fetch block with this one line
+      await requestMagicLink(email.toLowerCase());
+      setLinkSent(true);
+      showToast('Magic link send! Please check your mailbox', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Something showed up.', 'error');
+>>>>>>> upstream/main
     } finally {
       setLoading(false);
     }
@@ -114,7 +163,10 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.container}>
+<<<<<<< HEAD
       {/* Custom Toast */}
+=======
+>>>>>>> upstream/main
       {toast && (
         <Animated.View
           style={[
@@ -155,6 +207,7 @@ export default function AuthScreen() {
           {!linkSent ? (
             <>
               <Text style={styles.subtitle}>
+<<<<<<< HEAD
                 Entrez votre adresse email pour recevoir un lien de connexion.
               </Text>
 
@@ -163,6 +216,16 @@ export default function AuthScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Entrer votre adresse e-mail"
+=======
+                Enter your e-mail address to receive your Magic Link.
+              </Text>
+
+              <View style={styles.form}>
+                <Text style={styles.label}>E-mail address</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your e-mail address"
+>>>>>>> upstream/main
                   placeholderTextColor="#64748b"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -179,7 +242,11 @@ export default function AuthScreen() {
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
+<<<<<<< HEAD
                     <Text style={styles.buttonText}>Recevoir un lien de connexion</Text>
+=======
+                    <Text style={styles.buttonText}>Get your Magic Link</Text>
+>>>>>>> upstream/main
                   )}
                 </TouchableOpacity>
               </View>
@@ -189,6 +256,7 @@ export default function AuthScreen() {
               <View style={styles.iconCircle}>
                 <Text style={styles.successIcon}>📧</Text>
               </View>
+<<<<<<< HEAD
               <Text style={styles.successTitle}>Lien envoyé !</Text>
               <Text style={styles.successSubtitle}>
                 Nous avons envoyé un lien de connexion à : {"\n"}
@@ -196,13 +264,26 @@ export default function AuthScreen() {
               </Text>
               <Text style={styles.instruction}>
                 Cliquez sur le lien dans l'email depuis cet appareil pour vous connecter.
+=======
+              <Text style={styles.successTitle}>Magic Link sent !</Text>
+              <Text style={styles.successSubtitle}>
+                A Magic Link has been sent to : {"\n"}
+                <Text style={styles.emailHighlight}>{email}</Text>
+              </Text>
+              <Text style={styles.instruction}>
+                Click on the link in the e-mail from this device to connect.
+>>>>>>> upstream/main
               </Text>
 
               <TouchableOpacity
                 style={styles.retryButton}
                 onPress={() => setLinkSent(false)}
               >
+<<<<<<< HEAD
                 <Text style={styles.retryText}>Utiliser une autre adresse e-mail</Text>
+=======
+                <Text style={styles.retryText}>Use another e-mail address</Text>
+>>>>>>> upstream/main
               </TouchableOpacity>
             </View>
           )}
@@ -239,8 +320,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+<<<<<<< HEAD
 
   // Success state styles
+=======
+>>>>>>> upstream/main
   successContainer: { alignItems: 'center', marginTop: 20 },
   iconCircle: {
     width: 80, height: 80, borderRadius: 40,
@@ -254,8 +338,11 @@ const styles = StyleSheet.create({
   instruction: { fontSize: 14, color: '#64748b', textAlign: 'center', marginTop: 24, fontStyle: 'italic' },
   retryButton: { marginTop: 40 },
   retryText: { color: '#3b82f6', fontSize: 14 },
+<<<<<<< HEAD
 
   // Toast Styles
+=======
+>>>>>>> upstream/main
   toast: {
     position: 'absolute',
     left: 20,
